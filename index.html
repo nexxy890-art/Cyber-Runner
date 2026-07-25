@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Neon Pulse: Cyber Dash</title>
     <style>
         body {
@@ -17,11 +17,30 @@
             justify-content: center;
             height: 100vh;
             overflow: hidden;
+            touch-action: none;
         }
 
         #game-container {
             text-align: center;
             position: relative;
+            width: 400px;
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .score-box {
+            background: rgba(0, 243, 255, 0.1);
+            padding: 4px 12px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 243, 255, 0.3);
         }
 
         canvas {
@@ -33,26 +52,9 @@
             border-radius: 8px;
         }
 
-        .scoreboard {
-            display: flex;
-            justify-content: space-between;
-            width: 400px;
-            margin-bottom: 10px;
-            font-size: 18px;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-
-        .score-box {
-            background: rgba(0, 243, 255, 0.1);
-            padding: 5px 15px;
-            border-radius: 4px;
-            border: 1px solid rgba(0, 243, 255, 0.3);
-        }
-
         #instructions {
-            margin-top: 10px;
-            font-size: 14px;
+            margin-top: 8px;
+            font-size: 13px;
             color: #9ca3af;
         }
     </style>
@@ -64,16 +66,14 @@
             <div class="score-box">SCORE: <span id="currentScore">0</span></div>
             <div class="score-box">BEST: <span id="highScore">0</span></div>
         </div>
-        <canvas id="gameCanvas" width="400" height="500"></canvas>
-        <div id="instructions">Tap Screen, Click, or Press **Space / Up Arrow** to Jump</div>
+        <canvas id="gameCanvas" width="400" height="460"></canvas>
+        <div id="instructions">Tap Screen or Press **Space / Up Arrow** to Jump</div>
     </div>
 
-    <!-- Firebase SDK Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Aapki asli Firebase configuration yahan add kar di gayi hai
         const firebaseConfig = {
             apiKey: "AIzaSyAK5S695EtUotQh7McfGA539z23hfkqQnM",
             authDomain: "sukuna-chat.firebaseapp.com",
@@ -81,7 +81,6 @@
             storageBucket: "sukuna-chat.firebasestorage.app",
             messagingSenderId: "37564963680",
             appId: "1:37564963680:web:ba9fcb336cf11a057f1c05",
-            measurementId: "G-CQ20F83JCL",
             databaseURL: "https://sukuna-chat-default-rtdb.firebaseio.com/"
         };
 
@@ -90,7 +89,7 @@
             const app = initializeApp(firebaseConfig);
             db = getDatabase(app);
         } catch (e) {
-            console.log("Firebase fallback to local storage active.");
+            console.log("Firebase offline mode active.");
         }
 
         const canvas = document.getElementById("gameCanvas");
@@ -100,7 +99,6 @@
         let highScore = localStorage.getItem("cyberHighScore") || 0;
         document.getElementById("highScore").innerText = highScore;
 
-        // Firebase se high score sync karne ki koshish
         if (db) {
             const dbRef = ref(db);
             get(child(dbRef, 'leaderboard/player_best')).then((snapshot) => {
@@ -112,31 +110,31 @@
                         document.getElementById("highScore").innerText = highScore;
                     }
                 }
-            }).catch((error) => {
-                console.error(error);
-            });
+            }).catch((error) => { console.error(error); });
         }
 
-        let gameRunning = true;
-
+        let gameState = "start"; // start, playing, gameover
         let player = {
             x: 50,
-            y: 250,
+            y: 230,
             radius: 14,
-            gravity: 0.6,
-            lift: -10,
+            gravity: 0.35,   
+            lift: -6.5,      
             velocity: 0
         };
 
         let obstacles = [];
         let frameCount = 0;
+        let colorHue = 0; // Ball ke color change ke liye
 
         function drawPlayer() {
+            // Smooth color shifting using HSL
+            let currentColor = `hsl(${colorHue}, 100%, 50%)`;
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-            ctx.fillStyle = "#00f3ff";
+            ctx.fillStyle = currentColor;
             ctx.shadowBlur = 15;
-            ctx.shadowColor = "#00f3ff";
+            ctx.shadowColor = currentColor;
             ctx.fill();
             ctx.closePath();
             ctx.shadowBlur = 0;
@@ -152,13 +150,49 @@
             ctx.shadowBlur = 0;
         }
 
+        function drawScreenText() {
+            ctx.fillStyle = "rgba(17, 24, 39, 0.88)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.textAlign = "center";
+            ctx.shadowBlur = 15;
+
+            if (gameState === "start") {
+                ctx.fillStyle = "#00f3ff";
+                ctx.shadowColor = "#00f3ff";
+                ctx.font = "bold 28px 'Segoe UI', sans-serif";
+                ctx.fillText("TAP TO PLAY", canvas.width / 2, canvas.height / 2 - 10);
+                
+                ctx.fillStyle = "#9ca3af";
+                ctx.font = "14px 'Segoe UI', sans-serif";
+                ctx.shadowBlur = 0;
+                ctx.fillText("Get ready for the cyber dash", canvas.width / 2, canvas.height / 2 + 30);
+            } else if (gameState === "gameover") {
+                ctx.fillStyle = "#ff0055";
+                ctx.shadowColor = "#ff0055";
+                ctx.font = "bold 30px 'Segoe UI', sans-serif";
+                ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 35);
+                
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "18px 'Segoe UI', sans-serif";
+                ctx.shadowBlur = 0;
+                ctx.fillText("Score: " + Math.floor(score), canvas.width / 2, canvas.height / 2 + 5);
+                ctx.fillText("Tap to Play Again", canvas.width / 2, canvas.height / 2 + 45);
+            }
+            ctx.shadowBlur = 0;
+            ctx.textAlign = "left";
+        }
+
         function updateGame() {
-            if (!gameRunning) return;
+            if (gameState !== "playing") return;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             player.velocity += player.gravity;
             player.y += player.velocity;
+
+            // Ball color change tick
+            colorHue = (colorHue + 1.5) % 360;
 
             if (player.y + player.radius > canvas.height) {
                 player.y = canvas.height - player.radius;
@@ -169,27 +203,15 @@
                 player.velocity = 0;
             }
 
-            if (frameCount % 90 === 0) {
-                let obsHeight = Math.floor(Math.random() * 150) + 100;
-                let gap = 140;
-                obstacles.push({
-                    x: canvas.width,
-                    y: 0,
-                    width: 30,
-                    height: obsHeight,
-                    passed: false
-                });
-                obstacles.push({
-                    x: canvas.width,
-                    y: obsHeight + gap,
-                    width: 30,
-                    height: canvas.height - (obsHeight + gap),
-                    passed: false
-                });
+            if (frameCount % 140 === 0) {
+                let obsHeight = Math.floor(Math.random() * 120) + 60;
+                let gap = 160; 
+                obstacles.push({ x: canvas.width, y: 0, width: 30, height: obsHeight, passed: false });
+                obstacles.push({ x: canvas.width, y: obsHeight + gap, width: 30, height: canvas.height - (obsHeight + gap), passed: false });
             }
 
             for (let i = obstacles.length - 1; i >= 0; i--) {
-                obstacles[i].x -= 3.5;
+                obstacles[i].x -= 2.8; 
 
                 if (
                     player.x + player.radius > obstacles[i].x &&
@@ -215,11 +237,13 @@
             drawObstacles();
 
             frameCount++;
-            requestAnimationFrame(updateGame);
+            if (gameState === "playing") {
+                requestAnimationFrame(updateGame);
+            }
         }
 
         function gameOver() {
-            gameRunning = false;
+            gameState = "gameover";
             let finalScore = Math.floor(score);
 
             if (finalScore > highScore) {
@@ -234,37 +258,51 @@
                     }).catch(err => console.log("Firebase sync error:", err));
                 }
             }
-
-            setTimeout(() => {
-                alert("Game Over! Score: " + finalScore + "\nClick OK to Play Again.");
-                resetGame();
-            }, 100);
+            drawScreenText();
         }
 
         function resetGame() {
             score = 0;
             document.getElementById("currentScore").innerText = "0";
-            player.y = 250;
+            player.y = 230;
             player.velocity = 0;
             obstacles = [];
             frameCount = 0;
-            gameRunning = true;
+            gameState = "playing";
             updateGame();
+        }
+
+        function handleAction() {
+            if (gameState === "start") {
+                gameState = "playing";
+                updateGame();
+            } else if (gameState === "playing") {
+                player.velocity = player.lift;
+            } else if (gameState === "gameover") {
+                resetGame();
+            }
         }
 
         window.addEventListener("keydown", (e) => {
             if (e.code === "Space" || e.code === "ArrowUp") {
-                player.velocity = player.lift;
+                handleAction();
                 e.preventDefault();
             }
         });
 
         canvas.addEventListener("click", () => {
-            player.velocity = player.lift;
+            handleAction();
         });
 
-        updateGame();
+        canvas.addEventListener("touchstart", (e) => {
+            handleAction();
+            e.preventDefault();
+        }, { passive: false });
+
+        // Initial Render
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawPlayer();
+        drawScreenText();
     </script>
 </body>
-          </html>
-  
+</html>
