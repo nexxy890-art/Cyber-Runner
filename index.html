@@ -83,7 +83,7 @@
         }
 
         canvas {
-            background: #ffffff;
+            background: #e0f2fe;
             border: 2px solid #00f3ff;
             box-shadow: 0 0 25px rgba(0, 243, 255, 0.25);
             display: block;
@@ -172,59 +172,23 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        let audioCtx = null;
-        function initAudio() {
-            try {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-            } catch (e) {
-                console.log("Web Audio not supported");
-            }
-        }
-
+        // Safe Audio System using standard HTML5 Audio Beeps via Data URIs to prevent browser blocking
         function playSound(type) {
             try {
-                initAudio();
-                if (!audioCtx) return;
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
-
-                let osc = audioCtx.createOscillator();
-                let gainNode = audioCtx.createGain();
-                osc.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-
-                let now = audioCtx.currentTime;
-
-                if (type === 'jump') {
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(300, now);
-                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
-                    gainNode.gain.setValueAtTime(0.15, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
-                    osc.start(now);
-                    osc.stop(now + 0.12);
-                } else if (type === 'score') {
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(500, now);
-                    osc.frequency.setValueAtTime(800, now + 0.08);
-                    gainNode.gain.setValueAtTime(0.12, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-                    osc.start(now);
-                    osc.stop(now + 0.2);
-                } else if (type === 'gameover') {
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(250, now);
-                    osc.frequency.linearRampToValueAtTime(80, now + 0.3);
-                    gainNode.gain.setValueAtTime(0.2, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                    osc.start(now);
-                    osc.stop(now + 0.3);
-                }
+                let freq = type === 'jump' ? 400 : (type === 'score' ? 600 : 200);
+                let ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+                let osc = ctxAudio.createOscillator();
+                let gain = ctxAudio.createGain();
+                osc.type = type === 'gameover' ? 'sawtooth' : 'sine';
+                osc.frequency.value = freq;
+                osc.connect(gain);
+                gain.connect(ctxAudio.destination);
+                gain.gain.setValueAtTime(0.1, ctxAudio.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctxAudio.currentTime + 0.15);
+                osc.start();
+                osc.stop(ctxAudio.currentTime + 0.15);
             } catch (e) {
-                // Ignore audio errors silently to prevent game crash
+                // Ignore if audio fails
             }
         }
 
@@ -418,7 +382,7 @@
             let r = Math.floor(224 * (1 - nightFactor) + 11 * nightFactor);
             let g = Math.floor(242 * (1 - nightFactor) + 15 * nightFactor);
             let b = Math.floor(254 * (1 - nightFactor) + 25 * nightFactor);
-            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.88)`;
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.9)';`;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             ctx.textAlign = "center";
@@ -535,7 +499,6 @@
         }
 
         function handleAction() {
-            initAudio();
             if (gameState === "start") {
                 gameState = "playing";
                 playSound('jump');
@@ -565,4 +528,20 @@
             lastTouchTime = currentTime;
             handleAction();
             e.preventDefault();
-        }, { passiv
+        }, { passive: false });
+
+        canvas.addEventListener("click", () => {
+            let currentTime = Date.now();
+            if (currentTime - lastTouchTime < 80) return;
+            lastTouchTime = currentTime;
+            handleAction();
+        });
+
+        // Initial render
+        drawBackground();
+        drawPlayer();
+        drawScreenText();
+    </script>
+</body>
+    </html>
+    
