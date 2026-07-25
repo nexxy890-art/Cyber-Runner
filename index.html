@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Pulse: Cyber Dash</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0b0f19;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            text-align: center;
+            position: relative;
+        }
+
+        canvas {
+            background: #111827;
+            border: 2px solid #00f3ff;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-between;
+            width: 400px;
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .score-box {
+            background: rgba(0, 243, 255, 0.1);
+            padding: 5px 15px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 243, 255, 0.3);
+        }
+
+        #instructions {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="scoreboard">
+            <div class="score-box">SCORE: <span id="currentScore">0</span></div>
+            <div class="score-box">BEST: <span id="highScore">0</span></div>
+        </div>
+        <canvas id="gameCanvas" width="400" height="500"></canvas>
+        <div id="instructions">Tap Screen, Click, or Press **Space / Up Arrow** to Jump</div>
+    </div>
+
+    <!-- Firebase SDK Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Aapki asli Firebase configuration yahan add kar di gayi hai
+        const firebaseConfig = {
+            apiKey: "AIzaSyAK5S695EtUotQh7McfGA539z23hfkqQnM",
+            authDomain: "sukuna-chat.firebaseapp.com",
+            projectId: "sukuna-chat",
+            storageBucket: "sukuna-chat.firebasestorage.app",
+            messagingSenderId: "37564963680",
+            appId: "1:37564963680:web:ba9fcb336cf11a057f1c05",
+            measurementId: "G-CQ20F83JCL",
+            databaseURL: "https://sukuna-chat-default-rtdb.firebaseio.com/"
+        };
+
+        let db = null;
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+        } catch (e) {
+            console.log("Firebase fallback to local storage active.");
+        }
+
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let score = 0;
+        let highScore = localStorage.getItem("cyberHighScore") || 0;
+        document.getElementById("highScore").innerText = highScore;
+
+        // Firebase se high score sync karne ki koshish
+        if (db) {
+            const dbRef = ref(db);
+            get(child(dbRef, 'leaderboard/player_best')).then((snapshot) => {
+                if (snapshot.exists()) {
+                    let cloudScore = snapshot.val().score;
+                    if (cloudScore > highScore) {
+                        highScore = cloudScore;
+                        localStorage.setItem("cyberHighScore", highScore);
+                        document.getElementById("highScore").innerText = highScore;
+                    }
+                }
+            }).catch((error) => {
+                console.error(error);
+            });
+        }
+
+        let gameRunning = true;
+
+        let player = {
+            x: 50,
+            y: 250,
+            radius: 14,
+            gravity: 0.6,
+            lift: -10,
+            velocity: 0
+        };
+
+        let obstacles = [];
+        let frameCount = 0;
+
+        function drawPlayer() {
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#00f3ff";
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#00f3ff";
+            ctx.fill();
+            ctx.closePath();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawObstacles() {
+            ctx.fillStyle = "#ff0055";
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#ff0055";
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+            });
+            ctx.shadowBlur = 0;
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            player.velocity += player.gravity;
+            player.y += player.velocity;
+
+            if (player.y + player.radius > canvas.height) {
+                player.y = canvas.height - player.radius;
+                gameOver();
+            }
+            if (player.y - player.radius < 0) {
+                player.y = player.radius;
+                player.velocity = 0;
+            }
+
+            if (frameCount % 90 === 0) {
+                let obsHeight = Math.floor(Math.random() * 150) + 100;
+                let gap = 140;
+                obstacles.push({
+                    x: canvas.width,
+                    y: 0,
+                    width: 30,
+                    height: obsHeight,
+                    passed: false
+                });
+                obstacles.push({
+                    x: canvas.width,
+                    y: obsHeight + gap,
+                    width: 30,
+                    height: canvas.height - (obsHeight + gap),
+                    passed: false
+                });
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].x -= 3.5;
+
+                if (
+                    player.x + player.radius > obstacles[i].x &&
+                    player.x - player.radius < obstacles[i].x + obstacles[i].width &&
+                    player.y + player.radius > obstacles[i].y &&
+                    player.y - player.radius < obstacles[i].y + obstacles[i].height
+                ) {
+                    gameOver();
+                }
+
+                if (!obstacles[i].passed && obstacles[i].x < player.x) {
+                    score += 0.5;
+                    obstacles[i].passed = true;
+                    document.getElementById("currentScore").innerText = Math.floor(score);
+                }
+
+                if (obstacles[i].x + obstacles[i].width < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            drawPlayer();
+            drawObstacles();
+
+            frameCount++;
+            requestAnimationFrame(updateGame);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            let finalScore = Math.floor(score);
+
+            if (finalScore > highScore) {
+                highScore = finalScore;
+                localStorage.setItem("cyberHighScore", highScore);
+                document.getElementById("highScore").innerText = highScore;
+
+                if (db) {
+                    set(ref(db, 'leaderboard/player_best'), {
+                        score: highScore,
+                        timestamp: Date.now()
+                    }).catch(err => console.log("Firebase sync error:", err));
+                }
+            }
+
+            setTimeout(() => {
+                alert("Game Over! Score: " + finalScore + "\nClick OK to Play Again.");
+                resetGame();
+            }, 100);
+        }
+
+        function resetGame() {
+            score = 0;
+            document.getElementById("currentScore").innerText = "0";
+            player.y = 250;
+            player.velocity = 0;
+            obstacles = [];
+            frameCount = 0;
+            gameRunning = true;
+            updateGame();
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.code === "Space" || e.code === "ArrowUp") {
+                player.velocity = player.lift;
+                e.preventDefault();
+            }
+        });
+
+        canvas.addEventListener("click", () => {
+            player.velocity = player.lift;
+        });
+
+        updateGame();
+    </script>
+</body>
+          </html>
+  
