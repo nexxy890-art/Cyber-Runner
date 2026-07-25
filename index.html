@@ -8,16 +8,60 @@
         body {
             margin: 0;
             padding: 0;
-            background: #0b0f19;
+            background: #050811;
             color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-            touch-action: none;
+            justify-content: flex-start;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        #top-bar {
+            width: 400px;
+            background: rgba(17, 24, 39, 0.9);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .rating-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .star {
+            font-size: 18px;
+            color: #2d3748; 
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .star.active {
+            color: #ffd700;
+            text-shadow: 0 0 10px #ffd700, 0 0 20px #ffea00;
+            transform: scale(1.1);
+        }
+
+        #rating-emoji {
+            font-size: 22px;
+            margin-left: 6px;
+            animation: pulseEmoji 1.5s infinite alternate;
+        }
+
+        @keyframes pulseEmoji {
+            0% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(255,255,255,0.2)); }
+            100% { transform: scale(1.15); filter: drop-shadow(0 0 8px rgba(255,215,0,0.6)); }
         }
 
         #game-container {
@@ -30,44 +74,84 @@
             display: flex;
             justify-content: space-between;
             width: 100%;
-            margin-bottom: 8px;
-            font-size: 16px;
+            margin-bottom: 6px;
+            font-size: 15px;
             font-weight: bold;
             letter-spacing: 1px;
         }
 
         .score-box {
-            background: rgba(0, 243, 255, 0.1);
-            padding: 4px 12px;
+            background: rgba(0, 243, 255, 0.08);
+            padding: 4px 10px;
             border-radius: 4px;
-            border: 1px solid rgba(0, 243, 255, 0.3);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            color: #00f3ff;
         }
 
         canvas {
-            background: #111827;
+            background: #ffffff;
             border: 2px solid #00f3ff;
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.25);
             display: block;
             margin: 0 auto;
             border-radius: 8px;
         }
 
-        #instructions {
-            margin-top: 8px;
-            font-size: 13px;
-            color: #9ca3af;
+        #footer-bar {
+            margin-top: 12px;
+            width: 400px;
+            text-align: center;
+        }
+
+        #copyLinkBtn {
+            background: linear-gradient(135deg, #00f3ff, #0066ff);
+            color: #050811;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        #copyLinkBtn:active {
+            transform: scale(0.95);
+        }
+
+        #copyStatus {
+            font-size: 12px;
+            color: #10b981;
+            margin-top: 5px;
+            height: 15px;
         }
     </style>
 </head>
 <body>
 
+    <div id="top-bar">
+        <div class="rating-container" id="starContainer">
+            <span class="star" data-value="1">★</span>
+            <span class="star" data-value="2">★</span>
+            <span class="star" data-value="3">★</span>
+            <span class="star" data-value="4">★</span>
+            <span class="star" data-value="5">★</span>
+        </div>
+        <div id="rating-emoji">😵</div>
+    </div>
+
     <div id="game-container">
         <div class="scoreboard">
-            <div class="score-box">Sᴄᴏʀᴇ: <span id="currentScore">0</span></div>
-            <div class="score-box">Hɪɢʜᴇʀ: <span id="highScore">0</span></div>
+            <div class="score-box">SCORE: <span id="currentScore">0</span></div>
+            <div class="score-box">HIGH: <span id="highScore">0</span></div>
         </div>
-        <canvas id="gameCanvas" width="400" height="460"></canvas>
-        <div id="instructions">Tap Screen or Press **Space / Up Arrow** to Jump</div>
+        <canvas id="gameCanvas" width="400" height="420"></canvas>
+    </div>
+
+    <div id="footer-bar">
+        <button id="copyLinkBtn">Copy Link</button>
+        <div id="copyStatus"></div>
     </div>
 
     <script type="module">
@@ -95,6 +179,45 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
+        const emojis = { 0: "😵", 1: "🥺", 2: "😟", 3: "🙂", 4: "😉", 5: "😊" };
+        const stars = document.querySelectorAll(".star");
+        const emojiDisplay = document.getElementById("rating-emoji");
+
+        let currentRating = localStorage.getItem("cyberUserRating") || 0;
+        updateStarsUI(currentRating);
+
+        stars.forEach(star => {
+            star.addEventListener("click", () => {
+                currentRating = parseInt(star.getAttribute("data-value"));
+                localStorage.setItem("cyberUserRating", currentRating);
+                updateStarsUI(currentRating);
+            });
+        });
+
+        function updateStarsUI(rating) {
+            stars.forEach(s => {
+                let val = parseInt(s.getAttribute("data-value"));
+                if (val <= rating) {
+                    s.classList.add("active");
+                } else {
+                    s.classList.remove("active");
+                }
+            });
+            emojiDisplay.innerText = emojis[rating] || "😵";
+        }
+
+        document.getElementById("copyLinkBtn").addEventListener("click", () => {
+            const currentUrl = window.location.href;
+            navigator.clipboard.writeText(currentUrl).then(() => {
+                document.getElementById("copyStatus").innerText = "Link Copied Successfully!";
+                setTimeout(() => {
+                    document.getElementById("copyStatus").innerText = "";
+                }, 2500);
+            }).catch(err => {
+                console.error("Failed to copy link: ", err);
+            });
+        });
+
         let score = 0;
         let highScore = localStorage.getItem("cyberHighScore") || 0;
         document.getElementById("highScore").innerText = highScore;
@@ -116,7 +239,7 @@
         let gameState = "start"; 
         let player = {
             x: 50,
-            y: 230,
+            y: 210,
             radius: 14,
             gravity: 0.35,   
             lift: -6.5,      
@@ -125,28 +248,39 @@
 
         let obstacles = [];
         let frameCount = 0;
-        let colorHue = 0; 
+        let colorAngle = 0; 
 
-        let cycleTimer = 0;
-        let isNight = false;
+        // Smooth Day / Night Cycle Variables
+        let nightFactor = 0; // 0.0 (Pure White Day) to 1.0 (Pure Night)
+        let cycleProgress = 0;
         
-        const stars = [
-            {x: 50, y: 80, size: 1.5},
-            {x: 120, y: 40, size: 2},
-            {x: 200, y: 100, size: 1},
-            {x: 280, y: 50, size: 2.5},
-            {x: 350, y: 90, size: 1.5},
-            {x: 90, y: 180, size: 2},
-            {x: 320, y: 200, size: 1}
+        const nightStars = [
+            {x: 50, y: 50, size: 1.5},
+            {x: 130, y: 30, size: 2},
+            {x: 210, y: 70, size: 1},
+            {x: 290, y: 40, size: 2.5},
+            {x: 360, y: 60, size: 1.5},
+            {x: 90, y: 130, size: 2},
+            {x: 320, y: 150, size: 1}
         ];
 
         function drawBackground() {
-            if (isNight) {
-                ctx.fillStyle = "#050811";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Smooth background interpolation between White (#ffffff) and Dark Night (#03050b)
+            let r = Math.floor(255 * (1 - nightFactor) + 3 * nightFactor);
+            let g = Math.floor(255 * (1 - nightFactor) + 5 * nightFactor);
+            let b = Math.floor(255 * (1 - nightFactor) + 11 * nightFactor);
+            
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // Draw Moon & Stars with opacity based on nightFactor for smooth transition
+            if (nightFactor > 0.05) {
+                ctx.save();
+                ctx.globalAlpha = nightFactor;
+
+                // Moon
                 ctx.beginPath();
-                ctx.arc(330, 70, 20, 0, Math.PI * 2);
+                ctx.arc(330, 50, 18, 0, Math.PI * 2);
                 ctx.fillStyle = "#e2e8f0";
                 ctx.shadowBlur = 12;
                 ctx.shadowColor = "#ffffff";
@@ -154,26 +288,33 @@
                 ctx.closePath();
                 ctx.shadowBlur = 0;
 
+                // Stars
                 ctx.fillStyle = "#ffffff";
-                stars.forEach(s => {
+                nightStars.forEach(s => {
                     ctx.beginPath();
                     ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.closePath();
                 });
-            } else {
-                ctx.fillStyle = "#111827";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
             }
         }
 
         function drawPlayer() {
-            let currentColor = `hsl(${colorHue}, 100%, 50%)`;
+            let gradientX = player.x + Math.cos(colorAngle) * 8;
+            let gradientY = player.y + Math.sin(colorAngle) * 8;
+            let grad = ctx.createRadialGradient(gradientX, gradientY, 2, player.x, player.y, player.radius + 6);
+            
+            grad.addColorStop(0, "#ffffff");
+            grad.addColorStop(0.3, "#00f3ff");
+            grad.addColorStop(0.6, "#9d00ff");
+            grad.addColorStop(1, "#ff0055");
+
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-            ctx.fillStyle = currentColor;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = currentColor;
+            ctx.fillStyle = grad;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = "#00f3ff";
             ctx.fill();
             ctx.closePath();
             ctx.shadowBlur = 0;
@@ -190,32 +331,35 @@
         }
 
         function drawScreenText() {
-            ctx.fillStyle = isNight ? "rgba(5, 8, 17, 0.88)" : "rgba(17, 24, 39, 0.88)";
+            let r = Math.floor(255 * (1 - nightFactor) + 11 * nightFactor);
+            let g = Math.floor(255 * (1 - nightFactor) + 15 * nightFactor);
+            let b = Math.floor(255 * (1 - nightFactor) + 25 * nightFactor);
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.9)';`;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             ctx.textAlign = "center";
             ctx.shadowBlur = 15;
 
             if (gameState === "start") {
-                ctx.fillStyle = "#00f3ff";
+                ctx.fillStyle = "#007acc";
                 ctx.shadowColor = "#00f3ff";
-                ctx.font = "bold 28px 'Segoe UI', sans-serif";
+                ctx.font = "bold 26px 'Segoe UI', sans-serif";
                 ctx.fillText("TAP TO PLAY", canvas.width / 2, canvas.height / 2 - 10);
                 
-                ctx.fillStyle = "#9ca3af";
-                ctx.font = "14px 'Segoe UI', sans-serif";
+                ctx.fillStyle = "#4b5563";
+                ctx.font = "13px 'Segoe UI', sans-serif";
                 ctx.shadowBlur = 0;
-                ctx.fillText("Get ready for the cyber dash", canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText("Navigate through tight spaces", canvas.width / 2, canvas.height / 2 + 25);
             } else if (gameState === "gameover") {
                 ctx.fillStyle = "#ff0055";
                 ctx.shadowColor = "#ff0055";
-                ctx.font = "bold 30px 'Segoe UI', sans-serif";
-                ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 35);
+                ctx.font = "bold 28px 'Segoe UI', sans-serif";
+                ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 30);
                 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "18px 'Segoe UI', sans-serif";
+                ctx.fillStyle = "#1f2937";
+                ctx.font = "17px 'Segoe UI', sans-serif";
                 ctx.shadowBlur = 0;
-                ctx.fillText("Score: " + Math.floor(score), canvas.width / 2, canvas.height / 2 + 5);
+                ctx.fillText("Score: " + Math.floor(score), canvas.width / 2, canvas.height / 2 + 10);
                 ctx.fillText("Tap to Play Again", canvas.width / 2, canvas.height / 2 + 45);
             }
             ctx.shadowBlur = 0;
@@ -225,18 +369,16 @@
         function updateGame() {
             if (gameState !== "playing") return;
 
-            cycleTimer++;
-            if (cycleTimer >= 3600) {
-                isNight = !isNight;
-                cycleTimer = 0;
-            }
+            // Smooth gradual Day/Night transition logic using sine wave math
+            cycleProgress += 0.0012; // Controls how slow/smooth the transition is
+            nightFactor = (Math.sin(cycleProgress) + 1) / 2; // Ranges smoothly between 0 and 1
 
             drawBackground();
 
             player.velocity += player.gravity;
             player.y += player.velocity;
 
-            colorHue = (colorHue + 1.5) % 360;
+            colorAngle += 0.03;
 
             if (player.y + player.radius > canvas.height) {
                 player.y = canvas.height - player.radius;
@@ -247,11 +389,11 @@
                 player.velocity = 0;
             }
 
-            if (frameCount % 140 === 0) {
-                let obsHeight = Math.floor(Math.random() * 140) + 50; 
-                let gap = 170; // Thora mazeed challenging gap aur choti width (24px)
-                obstacles.push({ x: canvas.width, y: 0, width: 24, height: obsHeight, passed: false });
-                obstacles.push({ x: canvas.width, y: obsHeight + gap, width: 24, height: canvas.height - (obsHeight + gap), passed: false });
+            if (frameCount % 130 === 0) {
+                let obsHeight = Math.floor(Math.random() * 130) + 45; 
+                let gap = 135; 
+                obstacles.push({ x: canvas.width, y: 0, width: 22, height: obsHeight, passed: false });
+                obstacles.push({ x: canvas.width, y: obsHeight + gap, width: 22, height: canvas.height - (obsHeight + gap), passed: false });
             }
 
             for (let i = obstacles.length - 1; i >= 0; i--) {
@@ -308,12 +450,12 @@
         function resetGame() {
             score = 0;
             document.getElementById("currentScore").innerText = "0";
-            player.y = 230;
+            player.y = 210;
             player.velocity = 0;
             obstacles = [];
             frameCount = 0;
-            cycleTimer = 0;
-            isNight = false;
+            cycleProgress = 0;
+            nightFactor = 0;
             gameState = "playing";
             updateGame();
         }
@@ -350,5 +492,4 @@
         drawScreenText();
     </script>
 </body>
-    </html>
-    
+</html>
