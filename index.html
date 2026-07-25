@@ -172,11 +172,14 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // --- Web Audio API for Sound Effects ---
         let audioCtx = null;
         function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            } catch (e) {
+                console.log("Web Audio not supported");
             }
         }
 
@@ -221,7 +224,7 @@
                     osc.stop(now + 0.3);
                 }
             } catch (e) {
-                console.log("Audio play error:", e);
+                // Ignore audio errors silently to prevent game crash
             }
         }
 
@@ -253,7 +256,7 @@
             navigator.clipboard.writeText(window.location.href).then(() => {
                 document.getElementById("copyStatus").innerText = "Link Copied Successfully!";
                 setTimeout(() => { document.getElementById("copyStatus").innerText = ""; }, 2500);
-            });
+            }).catch(() => {});
         });
 
         let boosterActive = false;
@@ -562,8 +565,4 @@
             lastTouchTime = currentTime;
             handleAction();
             e.preventDefault();
-        }, { passive: false });
-
-        canvas.addEventListener("click", () => {
-            let currentTime = Date.now();
-   
+        }, { passiv
