@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Pulse: Cyber Dash</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #050811;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        #top-bar {
+            width: 400px;
+            background: rgba(17, 24, 39, 0.9);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .rating-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .star {
+            font-size: 18px;
+            color: #2d3748; 
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .star.active {
+            color: #ffd700;
+            text-shadow: 0 0 10px #ffd700, 0 0 20px #ffea00;
+            transform: scale(1.1);
+        }
+
+        #rating-emoji {
+            font-size: 22px;
+            margin-left: 6px;
+        }
+
+        #game-container {
+            text-align: center;
+            position: relative;
+            width: 400px;
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .score-box {
+            background: rgba(0, 243, 255, 0.08);
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            color: #00f3ff;
+        }
+
+        canvas {
+            background: #ffffff;
+            border: 2px solid #00f3ff;
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.25);
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+        }
+
+        #footer-bar {
+            margin-top: 15px;
+            width: 400px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-bottom: 30px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #00f3ff, #0066ff);
+            color: #050811;
+            border: none;
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(0, 243, 255, 0.3);
+            flex: 1;
+        }
+
+        .action-btn.booster {
+            background: linear-gradient(135deg, #ff0055, #ff7700);
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(255, 0, 85, 0.4);
+        }
+
+        .action-btn:disabled {
+            background: #374151;
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        #copyStatus {
+            font-size: 12px;
+            color: #10b981;
+            height: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar">
+        <div class="rating-container" id="starContainer">
+            <span class="star" data-value="1">★</span>
+            <span class="star" data-value="2">★</span>
+            <span class="star" data-value="3">★</span>
+            <span class="star" data-value="4">★</span>
+            <span class="star" data-value="5">★</span>
+        </div>
+        <div id="rating-emoji">😵</div>
+    </div>
+
+    <div id="game-container">
+        <div class="scoreboard">
+            <div class="score-box">Sᴄᴏʀᴇ: <span id="currentScore">0</span></div>
+            <div class="score-box">Hɪɢʜᴇʀ: <span id="highScore">0</span></div>
+        </div>
+        <canvas id="gameCanvas" width="400" height="420"></canvas>
+    </div>
+
+    <div id="footer-bar">
+        <div class="button-group">
+            <button id="copyLinkBtn" class="action-btn">Copy Link</button>
+            <button id="boosterBtn" class="action-btn booster">⚡ Speed Booster</button>
+        </div>
+        <div id="copyStatus"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const emojis = { 0: "😵", 1: "🥺", 2: "😟", 3: "🙂", 4: "😉", 5: "😊" };
+        const stars = document.querySelectorAll(".star");
+        const emojiDisplay = document.getElementById("rating-emoji");
+
+        let currentRating = localStorage.getItem("cyberUserRating") || 0;
+        updateStarsUI(currentRating);
+
+        stars.forEach(star => {
+            star.addEventListener("click", () => {
+                currentRating = parseInt(star.getAttribute("data-value"));
+                localStorage.setItem("cyberUserRating", currentRating);
+                updateStarsUI(currentRating);
+            });
+        });
+
+        function updateStarsUI(rating) {
+            stars.forEach(s => {
+                let val = parseInt(s.getAttribute("data-value"));
+                if (val <= rating) s.classList.add("active");
+                else s.classList.remove("active");
+            });
+            emojiDisplay.innerText = emojis[rating] || "😵";
+        }
+
+        document.getElementById("copyLinkBtn").addEventListener("click", () => {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                document.getElementById("copyStatus").innerText = "Link Copied Successfully!";
+                setTimeout(() => { document.getElementById("copyStatus").innerText = ""; }, 2500);
+            });
+        });
+
+        let boosterActive = false;
+        let boosterCooldown = false;
+        const boosterBtn = document.getElementById("boosterBtn");
+
+        boosterBtn.addEventListener("click", () => {
+            if (boosterCooldown || boosterActive) return;
+            boosterActive = true;
+            let timeLeft = 10;
+            boosterBtn.innerText = `⚡ BOOST (${timeLeft}s)`;
+
+            let boostTimer = setInterval(() => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    boosterBtn.innerText = `⚡ BOOST (${timeLeft}s)`;
+                } else {
+                    clearInterval(boostTimer);
+                    boosterActive = false;
+                    startCooldown();
+                }
+            }, 1000);
+        });
+
+        function startCooldown() {
+            boosterCooldown = true;
+            let coolTime = 30;
+            boosterBtn.disabled = true;
+            boosterBtn.innerText = `⏳ Wait ${coolTime}s`;
+
+            let coolTimer = setInterval(() => {
+                coolTime--;
+                if (coolTime > 0) {
+                    boosterBtn.innerText = `⏳ Wait ${coolTime}s`;
+                } else {
+                    clearInterval(coolTimer);
+                    boosterCooldown = false;
+                    boosterBtn.disabled = false;
+                    boosterBtn.innerText = "⚡ Speed Booster";
+                }
+            }, 1000);
+        }
+
+        let score = 0;
+        let highScore = localStorage.getItem("cyberHighScore") || 0;
+        document.getElementById("highScore").innerText = highScore;
+
+        let gameState = "start"; 
+        let player = { x: 50, y: 210, radius: 14, gravity: 0.35, lift: -6.5, velocity: 0 };
+        let obstacles = [];
+        let frameCount = 0;
+        let colorAngle = 0; 
+        let cycleProgress = 0;
+        let nightFactor = 0; 
+
+        const nightStars = [
+            {x: 50, y: 50, size: 1.5}, {x: 130, y: 30, size: 2},
+            {x: 210, y: 70, size: 1}, {x: 290, y: 40, size: 2.5},
+            {x: 360, y: 60, size: 1.5}, {x: 90, y: 130, size: 2}, {x: 320, y: 150, size: 1}
+        ];
+
+        const dayClouds = [
+            {x: 60, y: 45, size: 22, speed: 0.2},
+            {x: 180, y: 80, size: 30, speed: 0.15},
+            {x: 310, y: 50, size: 25, speed: 0.25}
+        ];
+
+        function drawBackground() {
+            let r = Math.floor(224 * (1 - nightFactor) + 3 * nightFactor);
+            let g = Math.floor(242 * (1 - nightFactor) + 7 * nightFactor);
+            let b = Math.floor(254 * (1 - nightFactor) + 18 * nightFactor);
+            
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (nightFactor < 0.8) {
+                ctx.save();
+                ctx.globalAlpha = (1 - nightFactor) * 0.7;
+                ctx.fillStyle = "#ffffff";
+                dayClouds.forEach(c => {
+                    c.x += c.speed;
+                    if (c.x > canvas.width + 40) c.x = -40;
+                    ctx.beginPath();
+                    ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
+                    ctx.arc(c.x + 15, c.y - 8, c.size * 0.7, 0, Math.PI * 2);
+                    ctx.arc(c.x + 25, c.y, c.size * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                });
+                ctx.restore();
+            }
+
+            if (nightFactor > 0.2) {
+                ctx.save();
+                ctx.globalAlpha = nightFactor;
+                ctx.beginPath();
+                ctx.arc(330, 50, 18, 0, Math.PI * 2);
+                ctx.fillStyle = "#e2e8f0";
+                ctx.fill();
+                ctx.closePath();
+
+                ctx.fillStyle = "#ffffff";
+                nightStars.forEach(s => {
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                });
+                ctx.restore();
+            }
+        }
+
+        function drawPlayer() {
+            let grad = ctx.createRadialGradient(player.x, player.y, 2, player.x, player.y, player.radius + 6);
+            let c1 = `hsl(${colorAngle * 50 % 360}, 100%, 70%)`;
+            let c2 = `hsl(${(colorAngle * 50 + 120) % 360}, 100%, 50%)`;
+            let c3 = `hsl(${(colorAngle * 50 + 240) % 360}, 100%, 40%)`;
+
+            grad.addColorStop(0, "#ffffff");
+            grad.addColorStop(0.35, c1);
+            grad.addColorStop(0.7, c2);
+            grad.addColorStop(1, c3);
+
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawObstacles() {
+            ctx.fillStyle = boosterActive ? "#00f3ff" : "#ff0055";
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+            });
+        }
+
+        function drawScreenText() {
+            let r = Math.floor(224 * (1 - nightFactor) + 11 * nightFactor);
+            let g = Math.floor(242 * (1 - nightFactor) + 15 * nightFactor);
+            let b = Math.floor(254 * (1 - nightFactor) + 25 * nightFactor);
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.88)`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.textAlign = "center";
+            if (gameState === "start") {
+                ctx.fillStyle = "#007acc";
+                ctx.font = "bold 26px 'Segoe UI', sans-serif";
+                ctx.fillText("TAP TO PLAY", canvas.width / 2, canvas.height / 2 - 10);
+                
+                ctx.fillStyle = "#4b5563";
+                ctx.font = "13px 'Segoe UI', sans-serif";
+                ctx.fillText("Navigate through tight spaces", canvas.width / 2, canvas.height / 2 + 25);
+            } else if (gameState === "gameover") {
+                ctx.fillStyle = "#ff0055";
+                ctx.font = "bold 28px 'Segoe UI', sans-serif";
+                ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 30);
+                
+                ctx.fillStyle = "#1f2937";
+                ctx.font = "17px 'Segoe UI', sans-serif";
+                ctx.fillText("Score: " + Math.floor(score), canvas.width / 2, canvas.height / 2 + 10);
+                ctx.fillText("Tap to Play Again", canvas.width / 2, canvas.height / 2 + 45);
+            }
+            ctx.textAlign = "left";
+        }
+
+        function updateGame() {
+            if (gameState !== "playing") return;
+
+            cycleProgress += (Math.PI * 2) / (60 * 60); 
+            nightFactor = (Math.sin(cycleProgress) + 1) / 2; 
+
+            drawBackground();
+
+            player.gravity = boosterActive ? 0.48 : 0.35;
+            player.lift = boosterActive ? -7.2 : -6.5;
+
+            player.velocity += player.gravity;
+            player.y += player.velocity;
+            colorAngle += 0.04;
+
+            if (player.y + player.radius > canvas.height) {
+                player.y = canvas.height - player.radius;
+                gameOver();
+            }
+            if (player.y - player.radius < 0) {
+                player.y = player.radius;
+                player.velocity = 0;
+            }
+
+            let spawnRate = boosterActive ? 90 : 130;
+            if (frameCount % spawnRate === 0) {
+                let obsHeight = Math.floor(Math.random() * 130) + 45; 
+                let gap = boosterActive ? 120 : 135; 
+                obstacles.push({ x: canvas.width, y: 0, width: 22, height: obsHeight, passed: false });
+                obstacles.push({ x: canvas.width, y: obsHeight + gap, width: 22, height: canvas.height - (obsHeight + gap), passed: false });
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obsSpeed = boosterActive ? 4.2 : 2.8;
+                obstacles[i].x -= obsSpeed; 
+
+                if (
+                    player.x + player.radius > obstacles[i].x &&
+                    player.x - player.radius < obstacles[i].x + obstacles[i].width &&
+                    player.y + player.radius > obstacles[i].y &&
+                    player.y - player.radius < obstacles[i].y + obstacles[i].height
+                ) {
+                    gameOver();
+                }
+
+                if (!obstacles[i].passed && obstacles[i].x < player.x) {
+                    score += boosterActive ? 1 : 0.5;
+                    obstacles[i].passed = true;
+                    document.getElementById("currentScore").innerText = Math.floor(score);
+                }
+
+                if (obstacles[i].x + obstacles[i].width < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            drawPlayer();
+            drawObstacles();
+
+            frameCount++;
+            if (gameState === "playing") {
+                requestAnimationFrame(updateGame);
+            }
+        }
+
+        function gameOver() {
+            gameState = "gameover";
+            let finalScore = Math.floor(score);
+            if (finalScore > highScore) {
+                highScore = finalScore;
+                localStorage.setItem("cyberHighScore", highScore);
+                document.getElementById("highScore").innerText = highScore;
+            }
+            drawScreenText();
+        }
+
+        function resetGame() {
+            score = 0;
+            document.getElementById("currentScore").innerText = "0";
+            player.y = 210;
+            player.velocity = 0;
+            obstacles = [];
+            frameCount = 0;
+            boosterActive = false;
+            gameState = "playing";
+            updateGame();
+        }
+
+        function handleAction() {
+            if (gameState === "start") {
+                gameState = "playing";
+                updateGame();
+            } else if (gameState === "playing") {
+                player.velocity = player.lift;
+            } else if (gameState === "gameover") {
+                resetGame();
+            }
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.code === "Space" || e.code === "ArrowUp") {
+                handleAction();
+                e.preventDefault();
+            }
+        });
+
+        let lastTouchTime = 0;
+        canvas.addEventListener("touchstart", (e) => {
+            let currentTime = Date.now();
+            if (currentTime - lastTouchTime < 80) {
+                e.preventDefault();
+                return;
+            }
+            lastTouchTime = currentTime;
+            handleAction();
+            e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener("click", () => {
+            let currentTime = Date.now();
+            if (currentTime - lastTouchTime < 80) return;
+            lastTouchTime = currentTime;
+            handleAction();
+        });
+
+        drawBackground();
+        drawPlayer();
+        drawScreenText();
+    </script>
+</body>
+  </html>
+  
