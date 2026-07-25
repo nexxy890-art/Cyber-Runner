@@ -172,6 +172,59 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
+        // --- Web Audio API for Sound Effects ---
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                let osc = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                let now = audioCtx.currentTime;
+
+                if (type === 'jump') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+                    gainNode.gain.setValueAtTime(0.15, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'score') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(500, now);
+                    osc.frequency.setValueAtTime(800, now + 0.08);
+                    gainNode.gain.setValueAtTime(0.12, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                } else if (type === 'gameover') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(250, now);
+                    osc.frequency.linearRampToValueAtTime(80, now + 0.3);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            } catch (e) {
+                console.log("Audio play error:", e);
+            }
+        }
+
         const emojis = { 0: "😵", 1: "🥺", 2: "😟", 3: "🙂", 4: "😉", 5: "😊" };
         const stars = document.querySelectorAll(".star");
         const emojiDisplay = document.getElementById("rating-emoji");
@@ -253,7 +306,6 @@
             );
         }
 
-        // Reset booster completely on game over / restart
         function resetBoosterState() {
             if (activeTimerInterval) {
                 clearInterval(activeTimerInterval);
@@ -437,6 +489,7 @@
                     score += boosterActive ? 1 : 0.5;
                     obstacles[i].passed = true;
                     document.getElementById("currentScore").innerText = Math.floor(score);
+                    playSound('score');
                 }
 
                 if (obstacles[i].x + obstacles[i].width < 0) {
@@ -455,7 +508,8 @@
 
         function gameOver() {
             gameState = "gameover";
-            resetBoosterState(); // Reset booster completely on death
+            playSound('gameover');
+            resetBoosterState();
             let finalScore = Math.floor(score);
             if (finalScore > highScore) {
                 highScore = finalScore;
@@ -466,7 +520,7 @@
         }
 
         function resetGame() {
-            resetBoosterState(); // Ensure reset on new game start
+            resetBoosterState();
             score = 0;
             document.getElementById("currentScore").innerText = "0";
             player.y = 210;
@@ -478,11 +532,14 @@
         }
 
         function handleAction() {
+            initAudio();
             if (gameState === "start") {
                 gameState = "playing";
+                playSound('jump');
                 updateGame();
             } else if (gameState === "playing") {
                 player.velocity = player.lift;
+                playSound('jump');
             } else if (gameState === "gameover") {
                 resetGame();
             }
@@ -509,14 +566,4 @@
 
         canvas.addEventListener("click", () => {
             let currentTime = Date.now();
-            if (currentTime - lastTouchTime < 80) return;
-            lastTouchTime = currentTime;
-            handleAction();
-        });
-
-        drawBackground();
-        drawPlayer();
-        drawScreenText();
-    </script>
-</body>
-</html>
+   
