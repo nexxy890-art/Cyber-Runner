@@ -207,41 +207,47 @@
         let boosterCooldown = false;
         const boosterBtn = document.getElementById("boosterBtn");
 
+        // Precise Timestamp-based Timer to fix any drifting/jumping seconds glitch
+        function startExactTimer(durationSecs, onUpdate, onComplete) {
+            let endTime = Date.now() + durationSecs * 1000;
+            let timerInterval = setInterval(() => {
+                let remaining = Math.ceil((endTime - Date.now()) / 1000);
+                if (remaining > 0) {
+                    onUpdate(remaining);
+                } else {
+                    clearInterval(timerInterval);
+                    onComplete();
+                }
+            }, 200);
+        }
+
         boosterBtn.addEventListener("click", () => {
             if (boosterCooldown || boosterActive) return;
             boosterActive = true;
-            let timeLeft = 10;
-            boosterBtn.innerText = `⚡ BOOST (${timeLeft}s)`;
+            boosterBtn.innerText = `⚡ BOOST (10s)`;
 
-            let boostTimer = setInterval(() => {
-                timeLeft--;
-                if (timeLeft > 0) {
-                    boosterBtn.innerText = `⚡ BOOST (${timeLeft}s)`;
-                } else {
-                    clearInterval(boostTimer);
+            startExactTimer(10, 
+                (rem) => { boosterBtn.innerText = `⚡ BOOST (${rem}s)`; }, 
+                () => {
                     boosterActive = false;
                     startCooldown();
                 }
-            }, 1000);
+            );
         });
 
         function startCooldown() {
             boosterCooldown = true;
-            let coolTime = 30;
             boosterBtn.disabled = true;
-            boosterBtn.innerText = `⏳ Wait ${coolTime}s`;
+            boosterBtn.innerText = `⏳ Wait 30s`;
 
-            let coolTimer = setInterval(() => {
-                coolTime--;
-                if (coolTime > 0) {
-                    boosterBtn.innerText = `⏳ Wait ${coolTime}s`;
-                } else {
-                    clearInterval(coolTimer);
+            startExactTimer(30,
+                (rem) => { boosterBtn.innerText = `⏳ Wait ${rem}s`; },
+                () => {
                     boosterCooldown = false;
                     boosterBtn.disabled = false;
                     boosterBtn.innerText = "⚡ Speed Booster";
                 }
-            }, 1000);
+            );
         }
 
         let score = 0;
@@ -263,9 +269,9 @@
         ];
 
         const dayClouds = [
-            {x: 60, y: 45, size: 22, speed: 0.2},
-            {x: 180, y: 80, size: 30, speed: 0.15},
-            {x: 310, y: 50, size: 25, speed: 0.25}
+            {x: 60, y: 45, size: 22, speed: 0.15},
+            {x: 180, y: 80, size: 30, speed: 0.1},
+            {x: 310, y: 50, size: 25, speed: 0.18}
         ];
 
         function drawBackground() {
@@ -370,7 +376,8 @@
         function updateGame() {
             if (gameState !== "playing") return;
 
-            cycleProgress += (Math.PI * 2) / (60 * 60); 
+            // 2 Minutes full cycle (120 seconds total for day + night shift smoothly)
+            cycleProgress += (Math.PI * 2) / (120 * 60); 
             nightFactor = (Math.sin(cycleProgress) + 1) / 2; 
 
             drawBackground();
@@ -497,5 +504,4 @@
         drawScreenText();
     </script>
 </body>
-  </html>
-  
+</html>
