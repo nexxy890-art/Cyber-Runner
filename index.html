@@ -63,8 +63,8 @@
 
     <div id="game-container">
         <div class="scoreboard">
-            <div class="score-box">SCORE: <span id="currentScore">0</span></div>
-            <div class="score-box">BEST: <span id="highScore">0</span></div>
+            <div class="score-box">Sᴄᴏʀᴇ: <span id="currentScore">0</span></div>
+            <div class="score-box">Hɪɢʜᴇʀ: <span id="highScore">0</span></div>
         </div>
         <canvas id="gameCanvas" width="400" height="460"></canvas>
         <div id="instructions">Tap Screen or Press **Space / Up Arrow** to Jump</div>
@@ -113,7 +113,7 @@
             }).catch((error) => { console.error(error); });
         }
 
-        let gameState = "start"; // start, playing, gameover
+        let gameState = "start"; 
         let player = {
             x: 50,
             y: 230,
@@ -125,10 +125,49 @@
 
         let obstacles = [];
         let frameCount = 0;
-        let colorHue = 0; // Ball ke color change ke liye
+        let colorHue = 0; 
+
+        let cycleTimer = 0;
+        let isNight = false;
+        
+        const stars = [
+            {x: 50, y: 80, size: 1.5},
+            {x: 120, y: 40, size: 2},
+            {x: 200, y: 100, size: 1},
+            {x: 280, y: 50, size: 2.5},
+            {x: 350, y: 90, size: 1.5},
+            {x: 90, y: 180, size: 2},
+            {x: 320, y: 200, size: 1}
+        ];
+
+        function drawBackground() {
+            if (isNight) {
+                ctx.fillStyle = "#050811";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.beginPath();
+                ctx.arc(330, 70, 20, 0, Math.PI * 2);
+                ctx.fillStyle = "#e2e8f0";
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = "#ffffff";
+                ctx.fill();
+                ctx.closePath();
+                ctx.shadowBlur = 0;
+
+                ctx.fillStyle = "#ffffff";
+                stars.forEach(s => {
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                });
+            } else {
+                ctx.fillStyle = "#111827";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
 
         function drawPlayer() {
-            // Smooth color shifting using HSL
             let currentColor = `hsl(${colorHue}, 100%, 50%)`;
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
@@ -151,7 +190,7 @@
         }
 
         function drawScreenText() {
-            ctx.fillStyle = "rgba(17, 24, 39, 0.88)";
+            ctx.fillStyle = isNight ? "rgba(5, 8, 17, 0.88)" : "rgba(17, 24, 39, 0.88)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             ctx.textAlign = "center";
@@ -186,12 +225,17 @@
         function updateGame() {
             if (gameState !== "playing") return;
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            cycleTimer++;
+            if (cycleTimer >= 3600) {
+                isNight = !isNight;
+                cycleTimer = 0;
+            }
+
+            drawBackground();
 
             player.velocity += player.gravity;
             player.y += player.velocity;
 
-            // Ball color change tick
             colorHue = (colorHue + 1.5) % 360;
 
             if (player.y + player.radius > canvas.height) {
@@ -204,10 +248,10 @@
             }
 
             if (frameCount % 140 === 0) {
-                let obsHeight = Math.floor(Math.random() * 120) + 60;
-                let gap = 160; 
-                obstacles.push({ x: canvas.width, y: 0, width: 30, height: obsHeight, passed: false });
-                obstacles.push({ x: canvas.width, y: obsHeight + gap, width: 30, height: canvas.height - (obsHeight + gap), passed: false });
+                let obsHeight = Math.floor(Math.random() * 140) + 50; 
+                let gap = 170; // Thora mazeed challenging gap aur choti width (24px)
+                obstacles.push({ x: canvas.width, y: 0, width: 24, height: obsHeight, passed: false });
+                obstacles.push({ x: canvas.width, y: obsHeight + gap, width: 24, height: canvas.height - (obsHeight + gap), passed: false });
             }
 
             for (let i = obstacles.length - 1; i >= 0; i--) {
@@ -268,6 +312,8 @@
             player.velocity = 0;
             obstacles = [];
             frameCount = 0;
+            cycleTimer = 0;
+            isNight = false;
             gameState = "playing";
             updateGame();
         }
@@ -299,10 +345,10 @@
             e.preventDefault();
         }, { passive: false });
 
-        // Initial Render
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBackground();
         drawPlayer();
         drawScreenText();
     </script>
 </body>
-</html>
+    </html>
+    
