@@ -202,7 +202,7 @@
             console.log("Firebase offline mode active.");
         }
 
-        // --- AUDIO ENGINE (Web Audio API for smooth, glitch-free sounds) ---
+        // --- AUDIO ENGINE ---
         let audioCtx = null;
         function initAudio() {
             if (!audioCtx) {
@@ -295,7 +295,6 @@
             emojiDisplay.innerText = emojis[rating] || "😵";
         }
 
-        // Copy Link Button
         document.getElementById("copyLinkBtn").addEventListener("click", () => {
             const currentUrl = window.location.href;
             navigator.clipboard.writeText(currentUrl).then(() => {
@@ -308,7 +307,6 @@
             });
         });
 
-        // Speed Booster Button & Logic
         const boosterBtn = document.getElementById("boosterBtn");
         let boosterActive = false;
         let boosterCooldown = false;
@@ -384,8 +382,6 @@
         let obstacles = [];
         let frameCount = 0;
         let colorAngle = 0; 
-
-        // Day & Night Cycle (1 Minute Cycle: 30s Day, 30s Night or smooth sine wave over 60 seconds)
         let cycleProgress = 0;
         let nightFactor = 0; 
 
@@ -406,7 +402,6 @@
         ];
 
         function drawBackground() {
-            // Smooth Day (Light Blue #e0f2fe) to Night (#030712) over 60 seconds cycle
             let r = Math.floor(224 * (1 - nightFactor) + 3 * nightFactor);
             let g = Math.floor(242 * (1 - nightFactor) + 7 * nightFactor);
             let b = Math.floor(254 * (1 - nightFactor) + 18 * nightFactor);
@@ -414,7 +409,6 @@
             ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Day Clouds
             if (nightFactor < 0.8) {
                 ctx.save();
                 ctx.globalAlpha = (1 - nightFactor) * 0.7;
@@ -433,12 +427,10 @@
                 ctx.restore();
             }
 
-            // Night Stars & Moon
             if (nightFactor > 0.2) {
                 ctx.save();
                 ctx.globalAlpha = nightFactor;
 
-                // Moon
                 ctx.beginPath();
                 ctx.arc(330, 50, 18, 0, Math.PI * 2);
                 ctx.fillStyle = "#e2e8f0";
@@ -448,7 +440,6 @@
                 ctx.closePath();
                 ctx.shadowBlur = 0;
 
-                // Stars
                 ctx.fillStyle = "#ffffff";
                 nightStars.forEach(s => {
                     ctx.beginPath();
@@ -465,7 +456,6 @@
             let gradientY = player.y + Math.sin(colorAngle) * 8;
             let grad = ctx.createRadialGradient(gradientX, gradientY, 2, player.x, player.y, player.radius + 6);
             
-            // Smoothly cycling 3-color palette
             let c1 = `hsl(${colorAngle * 50 % 360}, 100%, 70%)`;
             let c2 = `hsl(${(colorAngle * 50 + 120) % 360}, 100%, 50%)`;
             let c3 = `hsl(${(colorAngle * 50 + 240) % 360}, 100%, 40%)`;
@@ -534,13 +524,11 @@
         function updateGame() {
             if (gameState !== "playing") return;
 
-            // 60 seconds full cycle (30s day, 30s night) -> increment per frame (approx 60fps -> 3600 frames total)
             cycleProgress += (Math.PI * 2) / (60 * 60); 
             nightFactor = (Math.sin(cycleProgress) + 1) / 2; 
 
             drawBackground();
 
-            // Gravity & Physics adjustment during Speed Booster
             let currentGravity = boosterActive ? 0.48 : 0.35;
             let currentLift = boosterActive ? -7.2 : -6.5;
             player.gravity = currentGravity;
@@ -560,9 +548,21 @@
                 player.velocity = 0;
             }
 
-            // Obstacle frequency & speed adjustment during Booster
             let spawnRate = boosterActive ? 90 : 130;
             if (frameCount % spawnRate === 0) {
                 let obsHeight = Math.floor(Math.random() * 130) + 45; 
                 let gap = boosterActive ? 120 : 135; 
-                obstacles.push({ x: canvas.width, 
+                obstacles.push({ x: canvas.width, y: 0, width: 22, height: obsHeight, passed: false });
+                obstacles.push({ x: canvas.width, y: obsHeight + gap, width: 22, height: canvas.height - (obsHeight + gap), passed: false });
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obsSpeed = boosterActive ? 4.2 : 2.8;
+                obstacles[i].x -= obsSpeed; 
+
+                if (
+                    player.x + player.radius > obstacles[i].x &&
+                    player.x - player.radius < obstacles[i].x + obstacles[i].width &&
+                    player.y + player.radius > obstacles[i].y &&
+                    player.y - player.radius < obstacles[i].y + obstacles[i].height
+               
