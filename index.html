@@ -98,32 +98,55 @@
         }
 
         #footer-bar {
-            margin-top: 12px;
+            margin-top: 15px;
             width: 400px;
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-bottom: 30px;
         }
 
-        #copyLinkBtn {
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .action-btn {
             background: linear-gradient(135deg, #00f3ff, #0066ff);
             color: #050811;
             border: none;
-            padding: 10px 20px;
-            font-size: 14px;
+            padding: 10px 16px;
+            font-size: 13px;
             font-weight: bold;
             border-radius: 6px;
             cursor: pointer;
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            box-shadow: 0 0 12px rgba(0, 243, 255, 0.3);
             transition: all 0.2s ease;
+            flex: 1;
         }
 
-        #copyLinkBtn:active {
+        .action-btn:active {
             transform: scale(0.95);
+        }
+
+        .action-btn.booster {
+            background: linear-gradient(135deg, #ff0055, #ff7700);
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(255, 0, 85, 0.4);
+        }
+
+        .action-btn:disabled {
+            background: #374151;
+            color: #9ca3af;
+            box-shadow: none;
+            cursor: not-allowed;
         }
 
         #copyStatus {
             font-size: 12px;
             color: #10b981;
-            margin-top: 5px;
             height: 15px;
         }
     </style>
@@ -150,7 +173,10 @@
     </div>
 
     <div id="footer-bar">
-        <button id="copyLinkBtn">Copy Link</button>
+        <div class="button-group">
+            <button id="copyLinkBtn" class="action-btn">Copy Link</button>
+            <button id="boosterBtn" class="action-btn booster">⚡ Speed Booster</button>
+        </div>
         <div id="copyStatus"></div>
     </div>
 
@@ -174,6 +200,69 @@
             db = getDatabase(app);
         } catch (e) {
             console.log("Firebase offline mode active.");
+        }
+
+        // --- AUDIO ENGINE (Web Audio API for smooth, glitch-free sounds) ---
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playJumpSound() {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(350, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(700, audioCtx.currentTime + 0.08);
+                
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            } catch(e) {}
+        }
+
+        let panicInterval = null;
+        function startPanicSound() {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                let toggle = false;
+                panicInterval = setInterval(() => {
+                    if (!audioCtx) return;
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(toggle ? 880 : 659, audioCtx.currentTime);
+                    
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.12);
+                    toggle = !toggle;
+                }, 150);
+            } catch(e) {}
+        }
+
+        function stopPanicSound() {
+            if (panicInterval) {
+                clearInterval(panicInterval);
+                panicInterval = null;
+            }
         }
 
         const canvas = document.getElementById("gameCanvas");
@@ -206,6 +295,7 @@
             emojiDisplay.innerText = emojis[rating] || "😵";
         }
 
+        // Copy Link Button
         document.getElementById("copyLinkBtn").addEventListener("click", () => {
             const currentUrl = window.location.href;
             navigator.clipboard.writeText(currentUrl).then(() => {
@@ -217,6 +307,51 @@
                 console.error("Failed to copy link: ", err);
             });
         });
+
+        // Speed Booster Button & Logic
+        const boosterBtn = document.getElementById("boosterBtn");
+        let boosterActive = false;
+        let boosterCooldown = false;
+
+        boosterBtn.addEventListener("click", () => {
+            if (boosterCooldown || boosterActive) return;
+            
+            boosterActive = true;
+            startPanicSound();
+            let timeLeft = 10;
+            boosterBtn.innerText = `⚡ BOOST (${timeLeft}s)`;
+
+            let boostTimer = setInterval(() => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    boosterBtn.innerText = `⚡ BOOST (${timeLeft}s)`;
+                } else {
+                    clearInterval(boostTimer);
+                    boosterActive = false;
+                    stopPanicSound();
+                    startCooldown();
+                }
+            }, 1000);
+        });
+
+        function startCooldown() {
+            boosterCooldown = true;
+            let coolTime = 30;
+            boosterBtn.disabled = true;
+            boosterBtn.innerText = `⏳ Wait ${coolTime}s`;
+
+            let coolTimer = setInterval(() => {
+                coolTime--;
+                if (coolTime > 0) {
+                    boosterBtn.innerText = `⏳ Wait ${coolTime}s`;
+                } else {
+                    clearInterval(coolTimer);
+                    boosterCooldown = false;
+                    boosterBtn.disabled = false;
+                    boosterBtn.innerText = "⚡ Speed Booster";
+                }
+            }, 1000);
+        }
 
         let score = 0;
         let highScore = localStorage.getItem("cyberHighScore") || 0;
@@ -250,9 +385,10 @@
         let frameCount = 0;
         let colorAngle = 0; 
 
-        let nightFactor = 0; 
+        // Day & Night Cycle (1 Minute Cycle: 30s Day, 30s Night or smooth sine wave over 60 seconds)
         let cycleProgress = 0;
-        
+        let nightFactor = 0; 
+
         const nightStars = [
             {x: 50, y: 50, size: 1.5},
             {x: 130, y: 30, size: 2},
@@ -263,18 +399,46 @@
             {x: 320, y: 150, size: 1}
         ];
 
+        const dayClouds = [
+            {x: 60, y: 45, size: 22, speed: 0.2},
+            {x: 180, y: 80, size: 30, speed: 0.15},
+            {x: 310, y: 50, size: 25, speed: 0.25}
+        ];
+
         function drawBackground() {
-            let r = Math.floor(255 * (1 - nightFactor) + 3 * nightFactor);
-            let g = Math.floor(255 * (1 - nightFactor) + 5 * nightFactor);
-            let b = Math.floor(255 * (1 - nightFactor) + 11 * nightFactor);
+            // Smooth Day (Light Blue #e0f2fe) to Night (#030712) over 60 seconds cycle
+            let r = Math.floor(224 * (1 - nightFactor) + 3 * nightFactor);
+            let g = Math.floor(242 * (1 - nightFactor) + 7 * nightFactor);
+            let b = Math.floor(254 * (1 - nightFactor) + 18 * nightFactor);
             
             ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            if (nightFactor > 0.05) {
+            // Day Clouds
+            if (nightFactor < 0.8) {
+                ctx.save();
+                ctx.globalAlpha = (1 - nightFactor) * 0.7;
+                ctx.fillStyle = "#ffffff";
+                dayClouds.forEach(c => {
+                    c.x += c.speed;
+                    if (c.x > canvas.width + 40) c.x = -40;
+
+                    ctx.beginPath();
+                    ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
+                    ctx.arc(c.x + 15, c.y - 8, c.size * 0.7, 0, Math.PI * 2);
+                    ctx.arc(c.x + 25, c.y, c.size * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                });
+                ctx.restore();
+            }
+
+            // Night Stars & Moon
+            if (nightFactor > 0.2) {
                 ctx.save();
                 ctx.globalAlpha = nightFactor;
 
+                // Moon
                 ctx.beginPath();
                 ctx.arc(330, 50, 18, 0, Math.PI * 2);
                 ctx.fillStyle = "#e2e8f0";
@@ -284,6 +448,7 @@
                 ctx.closePath();
                 ctx.shadowBlur = 0;
 
+                // Stars
                 ctx.fillStyle = "#ffffff";
                 nightStars.forEach(s => {
                     ctx.beginPath();
@@ -300,25 +465,30 @@
             let gradientY = player.y + Math.sin(colorAngle) * 8;
             let grad = ctx.createRadialGradient(gradientX, gradientY, 2, player.x, player.y, player.radius + 6);
             
+            // Smoothly cycling 3-color palette
+            let c1 = `hsl(${colorAngle * 50 % 360}, 100%, 70%)`;
+            let c2 = `hsl(${(colorAngle * 50 + 120) % 360}, 100%, 50%)`;
+            let c3 = `hsl(${(colorAngle * 50 + 240) % 360}, 100%, 40%)`;
+
             grad.addColorStop(0, "#ffffff");
-            grad.addColorStop(0.3, "#00f3ff");
-            grad.addColorStop(0.6, "#9d00ff");
-            grad.addColorStop(1, "#ff0055");
+            grad.addColorStop(0.35, c1);
+            grad.addColorStop(0.7, c2);
+            grad.addColorStop(1, c3);
 
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
             ctx.fillStyle = grad;
             ctx.shadowBlur = 18;
-            ctx.shadowColor = "#00f3ff";
+            ctx.shadowColor = c1;
             ctx.fill();
             ctx.closePath();
             ctx.shadowBlur = 0;
         }
 
         function drawObstacles() {
-            ctx.fillStyle = "#ff0055";
+            ctx.fillStyle = boosterActive ? "#00f3ff" : "#ff0055";
             ctx.shadowBlur = 10;
-            ctx.shadowColor = "#ff0055";
+            ctx.shadowColor = boosterActive ? "#00f3ff" : "#ff0055";
             obstacles.forEach(obs => {
                 ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
             });
@@ -326,9 +496,9 @@
         }
 
         function drawScreenText() {
-            let r = Math.floor(255 * (1 - nightFactor) + 11 * nightFactor);
-            let g = Math.floor(255 * (1 - nightFactor) + 15 * nightFactor);
-            let b = Math.floor(255 * (1 - nightFactor) + 25 * nightFactor);
+            let r = Math.floor(224 * (1 - nightFactor) + 11 * nightFactor);
+            let g = Math.floor(242 * (1 - nightFactor) + 15 * nightFactor);
+            let b = Math.floor(254 * (1 - nightFactor) + 25 * nightFactor);
             ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.88)`;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -364,15 +534,22 @@
         function updateGame() {
             if (gameState !== "playing") return;
 
-            cycleProgress += 0.0012; 
+            // 60 seconds full cycle (30s day, 30s night) -> increment per frame (approx 60fps -> 3600 frames total)
+            cycleProgress += (Math.PI * 2) / (60 * 60); 
             nightFactor = (Math.sin(cycleProgress) + 1) / 2; 
 
             drawBackground();
 
+            // Gravity & Physics adjustment during Speed Booster
+            let currentGravity = boosterActive ? 0.48 : 0.35;
+            let currentLift = boosterActive ? -7.2 : -6.5;
+            player.gravity = currentGravity;
+            player.lift = currentLift;
+
             player.velocity += player.gravity;
             player.y += player.velocity;
 
-            colorAngle += 0.03;
+            colorAngle += 0.04;
 
             if (player.y + player.radius > canvas.height) {
                 player.y = canvas.height - player.radius;
@@ -383,108 +560,9 @@
                 player.velocity = 0;
             }
 
-            if (frameCount % 130 === 0) {
+            // Obstacle frequency & speed adjustment during Booster
+            let spawnRate = boosterActive ? 90 : 130;
+            if (frameCount % spawnRate === 0) {
                 let obsHeight = Math.floor(Math.random() * 130) + 45; 
-                let gap = 135; 
-                obstacles.push({ x: canvas.width, y: 0, width: 22, height: obsHeight, passed: false });
-                obstacles.push({ x: canvas.width, y: obsHeight + gap, width: 22, height: canvas.height - (obsHeight + gap), passed: false });
-            }
-
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                obstacles[i].x -= 2.8; 
-
-                if (
-                    player.x + player.radius > obstacles[i].x &&
-                    player.x - player.radius < obstacles[i].x + obstacles[i].width &&
-                    player.y + player.radius > obstacles[i].y &&
-                    player.y - player.radius < obstacles[i].y + obstacles[i].height
-                ) {
-                    gameOver();
-                }
-
-                if (!obstacles[i].passed && obstacles[i].x < player.x) {
-                    score += 0.5;
-                    obstacles[i].passed = true;
-                    document.getElementById("currentScore").innerText = Math.floor(score);
-                }
-
-                if (obstacles[i].x + obstacles[i].width < 0) {
-                    obstacles.splice(i, 1);
-                }
-            }
-
-            drawPlayer();
-            drawObstacles();
-
-            frameCount++;
-            if (gameState === "playing") {
-                requestAnimationFrame(updateGame);
-            }
-        }
-
-        function gameOver() {
-            gameState = "gameover";
-            let finalScore = Math.floor(score);
-
-            if (finalScore > highScore) {
-                highScore = finalScore;
-                localStorage.setItem("cyberHighScore", highScore);
-                document.getElementById("highScore").innerText = highScore;
-
-                if (db) {
-                    set(ref(db, 'leaderboard/player_best'), {
-                        score: highScore,
-                        timestamp: Date.now()
-                    }).catch(err => console.log("Firebase sync error:", err));
-                }
-            }
-            drawScreenText();
-        }
-
-        function resetGame() {
-            score = 0;
-            document.getElementById("currentScore").innerText = "0";
-            player.y = 210;
-            player.velocity = 0;
-            obstacles = [];
-            frameCount = 0;
-            cycleProgress = 0;
-            nightFactor = 0;
-            gameState = "playing";
-            updateGame();
-        }
-
-        function handleAction() {
-            if (gameState === "start") {
-                gameState = "playing";
-                updateGame();
-            } else if (gameState === "playing") {
-                player.velocity = player.lift;
-            } else if (gameState === "gameover") {
-                resetGame();
-            }
-        }
-
-        window.addEventListener("keydown", (e) => {
-            if (e.code === "Space" || e.code === "ArrowUp") {
-                handleAction();
-                e.preventDefault();
-            }
-        });
-
-        canvas.addEventListener("click", () => {
-            handleAction();
-        });
-
-        canvas.addEventListener("touchstart", (e) => {
-            handleAction();
-            e.preventDefault();
-        }, { passive: false });
-
-        drawBackground();
-        drawPlayer();
-        drawScreenText();
-    </script>
-</body>
-    </html>
-    
+                let gap = boosterActive ? 120 : 135; 
+                obstacles.push({ x: canvas.width, 
