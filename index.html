@@ -154,7 +154,7 @@
 
     <div id="game-container">
         <div class="scoreboard">
-            <div class="score-box">Sᴄᴏʀᴇ: <span id="currentScore">0</span></div>
+            <div class="score-box">Sᴄᴏʀᴇs: <span id="currentScore">0</span></div>
             <div class="score-box">Hɪɢʜᴇʀ: <span id="highScore">0</span></div>
         </div>
         <canvas id="gameCanvas" width="400" height="420"></canvas>
@@ -205,17 +205,20 @@
 
         let boosterActive = false;
         let boosterCooldown = false;
+        let activeTimerInterval = null;
         const boosterBtn = document.getElementById("boosterBtn");
 
-        // Precise Timestamp-based Timer to fix any drifting/jumping seconds glitch
         function startExactTimer(durationSecs, onUpdate, onComplete) {
             let endTime = Date.now() + durationSecs * 1000;
-            let timerInterval = setInterval(() => {
+            if (activeTimerInterval) clearInterval(activeTimerInterval);
+            
+            activeTimerInterval = setInterval(() => {
                 let remaining = Math.ceil((endTime - Date.now()) / 1000);
                 if (remaining > 0) {
                     onUpdate(remaining);
                 } else {
-                    clearInterval(timerInterval);
+                    clearInterval(activeTimerInterval);
+                    activeTimerInterval = null;
                     onComplete();
                 }
             }, 200);
@@ -248,6 +251,18 @@
                     boosterBtn.innerText = "⚡ Speed Booster";
                 }
             );
+        }
+
+        // Reset booster completely on game over / restart
+        function resetBoosterState() {
+            if (activeTimerInterval) {
+                clearInterval(activeTimerInterval);
+                activeTimerInterval = null;
+            }
+            boosterActive = false;
+            boosterCooldown = false;
+            boosterBtn.disabled = false;
+            boosterBtn.innerText = "⚡ Speed Booster";
         }
 
         let score = 0;
@@ -376,7 +391,6 @@
         function updateGame() {
             if (gameState !== "playing") return;
 
-            // 2 Minutes full cycle (120 seconds total for day + night shift smoothly)
             cycleProgress += (Math.PI * 2) / (120 * 60); 
             nightFactor = (Math.sin(cycleProgress) + 1) / 2; 
 
@@ -441,6 +455,7 @@
 
         function gameOver() {
             gameState = "gameover";
+            resetBoosterState(); // Reset booster completely on death
             let finalScore = Math.floor(score);
             if (finalScore > highScore) {
                 highScore = finalScore;
@@ -451,13 +466,13 @@
         }
 
         function resetGame() {
+            resetBoosterState(); // Ensure reset on new game start
             score = 0;
             document.getElementById("currentScore").innerText = "0";
             player.y = 210;
             player.velocity = 0;
             obstacles = [];
             frameCount = 0;
-            boosterActive = false;
             gameState = "playing";
             updateGame();
         }
